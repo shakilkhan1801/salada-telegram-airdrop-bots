@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: telegram-airdrop-bot
+  labels:
+    app: telegram-airdrop-bot
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: telegram-airdrop-bot
+  template:
+    metadata:
+      labels:
+        app: telegram-airdrop-bot
+    spec:
+      containers:
+        - name: app
+          image: your-registry/telegram-airdrop-bot:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: telegram-airdrop-config
+            - secretRef:
+                name: telegram-airdrop-secrets
+          ports:
+            - containerPort: 3002
+            - containerPort: 3001
+            - containerPort: 8443
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1024Mi"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: telegram-airdrop-bot-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: telegram-airdrop-bot
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

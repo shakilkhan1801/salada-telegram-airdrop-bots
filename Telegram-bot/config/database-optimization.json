@@ -1,0 +1,204 @@
+{
+  "version": "2.0.0",
+  "description": "Database optimization configuration for handling millions of users",
+  "targetScale": "1M-10M concurrent users",
+  
+  "mongodb": {
+    "connectionPool": {
+      "maxPoolSize": 1000,
+      "minPoolSize": 100,
+      "maxIdleTimeMS": 60000,
+      "waitQueueTimeoutMS": 10000,
+      "connectTimeoutMS": 10000,
+      "socketTimeoutMS": 30000,
+      "serverSelectionTimeoutMS": 10000
+    },
+    
+    "performance": {
+      "readPreference": "primaryPreferred",
+      "readConcern": "local",
+      "writeConcern": {
+        "w": 1,
+        "wtimeoutMS": 5000
+      },
+      "compressors": ["zstd", "snappy", "zlib"],
+      "retryWrites": true,
+      "retryReads": true
+    },
+    
+    "indexes": {
+      "autoCreate": true,
+      "background": true,
+      "criticalIndexes": [
+        {
+          "collection": "users",
+          "keys": { "telegramId": 1 },
+          "unique": true,
+          "comment": "Primary user lookup"
+        },
+        {
+          "collection": "users",
+          "keys": { "walletAddress": 1 },
+          "unique": true,
+          "sparse": true,
+          "comment": "Wallet uniqueness check"
+        },
+        {
+          "collection": "users",
+          "keys": { "referralCode": 1 },
+          "unique": true,
+          "comment": "Referral system"
+        },
+        {
+          "collection": "users",
+          "keys": { "deviceFingerprint": 1, "ipAddress": 1 },
+          "comment": "Multi-account detection"
+        },
+        {
+          "collection": "users",
+          "keys": { "isActive": 1, "points": -1 },
+          "comment": "Leaderboard queries"
+        }
+      ]
+    },
+    
+    "queryOptimization": {
+      "maxQueryTime": 5000,
+      "enableProfiling": false,
+      "slowQueryThreshold": 100,
+      "projection": {
+        "alwaysExclude": ["_id"],
+        "defaultFields": ["id", "telegramId", "username", "points"]
+      }
+    },
+    
+    "caching": {
+      "enabled": true,
+      "ttl": 300,
+      "collections": ["users", "tasks", "system_stats"]
+    }
+  },
+  
+  "redis": {
+    "enabled": true,
+    "connectionPool": {
+      "maxConnections": 500,
+      "minConnections": 50,
+      "idleTimeoutMillis": 30000,
+      "connectionTimeoutMillis": 5000
+    },
+    
+    "caching": {
+      "userCache": {
+        "ttl": 300,
+        "maxKeys": 100000,
+        "strategy": "LRU"
+      },
+      "taskCache": {
+        "ttl": 600,
+        "maxKeys": 10000,
+        "strategy": "LRU"
+      },
+      "sessionCache": {
+        "ttl": 900,
+        "maxKeys": 500000,
+        "strategy": "LRU"
+      },
+      "referralCache": {
+        "ttl": 300,
+        "maxKeys": 50000,
+        "strategy": "LRU"
+      }
+    },
+    
+    "rateLimiting": {
+      "enabled": true,
+      "perUser": {
+        "window": 60,
+        "maxRequests": 100
+      },
+      "perIP": {
+        "window": 60,
+        "maxRequests": 500
+      }
+    }
+  },
+  
+  "optimization": {
+    "batchProcessing": {
+      "enabled": true,
+      "batchSize": 1000,
+      "intervalMs": 100
+    },
+    
+    "updateDeduplication": {
+      "enabled": true,
+      "windowMs": 1000
+    },
+    
+    "queryBatching": {
+      "enabled": true,
+      "maxBatchSize": 100,
+      "waitTimeMs": 10
+    }
+  },
+  
+  "monitoring": {
+    "enabled": true,
+    "metrics": {
+      "connectionPoolUsage": true,
+      "queryPerformance": true,
+      "cacheHitRate": true,
+      "errorRate": true
+    },
+    "alerts": {
+      "connectionPoolExhaustion": {
+        "threshold": 0.9,
+        "action": "log"
+      },
+      "slowQueries": {
+        "threshold": 1000,
+        "action": "log"
+      },
+      "highErrorRate": {
+        "threshold": 0.05,
+        "action": "alert"
+      }
+    }
+  },
+  
+  "scaling": {
+    "horizontal": {
+      "enabled": true,
+      "maxInstances": 10,
+      "minInstances": 2,
+      "scaleUpThreshold": {
+        "cpuPercent": 70,
+        "memoryPercent": 80,
+        "requestsPerSecond": 10000
+      },
+      "scaleDownThreshold": {
+        "cpuPercent": 30,
+        "memoryPercent": 40,
+        "requestsPerSecond": 1000
+      }
+    },
+    
+    "loadBalancing": {
+      "strategy": "round-robin",
+      "healthCheck": {
+        "enabled": true,
+        "intervalMs": 10000,
+        "timeoutMs": 5000
+      },
+      "sessionAffinity": false
+    }
+  },
+  
+  "backup": {
+    "enabled": true,
+    "frequency": "daily",
+    "retention": 7,
+    "incrementalBackup": true
+  }
+}

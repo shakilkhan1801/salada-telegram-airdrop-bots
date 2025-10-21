@@ -1,0 +1,191 @@
+config:
+  target: "{{ $processEnvironment.BASE_URL }}"
+  phases:
+    # Phase 1: Warm up
+    - duration: 120
+      arrivalRate: 5
+      name: "Warm up"
+    
+    # Phase 2: Ramp up
+    - duration: 180
+      arrivalRate: 5
+      rampTo: 20
+      name: "Ramp up to 20 users/sec"
+    
+    # Phase 3: Sustained load
+    - duration: 300
+      arrivalRate: 20
+      name: "Sustained load - 20 users/sec"
+    
+    # Phase 4: Peak load
+    - duration: 180
+      arrivalRate: 20
+      rampTo: 50
+      name: "Ramp up to 50 users/sec"
+    
+    # Phase 5: Spike test
+    - duration: 60
+      arrivalRate: 100
+      name: "Spike - 100 users/sec"
+    
+    # Phase 6: Cool down
+    - duration: 120
+      arrivalRate: 10
+      name: "Cool down"
+  
+  defaults:
+    headers:
+      Content-Type: "application/json"
+  
+  processor: "./artillery-processor.js"
+  
+  plugins:
+    expect: {}
+    metrics-by-endpoint:
+      stripQueryString: true
+      metricsNamespace: "telegram_bot"
+  
+  ensure:
+    maxErrorRate: 5              # Max 5% error rate
+    p95: 500                     # 95th percentile under 500ms
+    p99: 1000                    # 99th percentile under 1s
+  
+  # Environment variables
+  environments:
+    local:
+      target: "http://localhost:3001"
+      variables:
+        botToken: "{{ $processEnvironment.BOT_TOKEN }}"
+        miniappUrl: "http://localhost:3004"
+    
+    staging:
+      target: "{{ $processEnvironment.STAGING_URL }}"
+      variables:
+        botToken: "{{ $processEnvironment.STAGING_BOT_TOKEN }}"
+        miniappUrl: "{{ $processEnvironment.STAGING_MINIAPP_URL }}"
+    
+    production:
+      target: "{{ $processEnvironment.PRODUCTION_URL }}"
+      variables:
+        botToken: "{{ $processEnvironment.PRODUCTION_BOT_TOKEN }}"
+        miniappUrl: "{{ $processEnvironment.PRODUCTION_MINIAPP_URL }}"
+      phases:
+        # More conservative for production testing
+        - duration: 120
+          arrivalRate: 2
+          name: "Production warm up"
+        - duration: 300
+          arrivalRate: 5
+          rampTo: 10
+          name: "Production ramp up"
+        - duration: 300
+          arrivalRate: 10
+          name: "Production sustained"
+
+scenarios:
+  # Scenario 1: New user complete flow
+  - name: "New User Complete Flow"
+    weight: 50
+    flow:
+      - post:
+          url: "/webhook/{{ botToken }}"
+          beforeRequest: "generateStartCommand"
+          json:
+            update_id: "{{ updateId }}"
+            message: "{{ message }}"
+          capture:
+            - json: "$"
+              as: "startResponse"
+          expect:
+            - statusCode: 200
+            - contentType: json
+      
+      - think: 2
+      
+      # Miniapp captcha session
+      - post:
+          url: "{{ miniappUrl }}/api/captcha/session"
+          beforeRequest: "generateCaptchaSession"
+          json:
+            initData: "{{ initData }}"
+            deviceFingerprint: "{{ deviceFingerprint }}"
+          capture:
+            - json: "$.sessionId"
+              as: "sessionId"
+          expect:
+            - statusCode: 200
+      
+      - think: 3
+      
+      # Complete captcha
+      - post:
+          url: "{{ miniappUrl }}/api/captcha/complete"
+          json:
+            initData: "{{ initData }}"
+            sessionId: "{{ sessionId }}"
+            success: true
+            score: 90
+            timeTaken: 4000
+          expect:
+            - statusCode: 200
+      
+      - think: 1
+      
+      # Navigate to tasks
+      - post:
+          url: "/webhook/{{ botToken }}"
+          beforeRequest: "generateTasksCallback"
+          json:
+            update_id: "{{ updateId }}"
+            callback_query: "{{ callbackQuery }}"
+          expect:
+            - statusCode: 200
+      
+      - think: 2
+      
+      # Complete a task
+      - post:
+          url: "/webhook/{{ botToken }}"
+          beforeRequest: "generateTaskComplete"
+          json:
+            update_id: "{{ updateId }}"
+            callback_query: "{{ callbackQuery }}"
+          expect:
+            - statusCode: 200
+
+  # Scenario 2: Existing user checking balance
+  - name: "Existing User Check Balance"
+    weight: 30
+    flow:
+      - post:
+          url: "/webhook/{{ botToken }}"
+          beforeRequest: "generateBalanceCheck"
+          json:
+            update_id: "{{ updateId }}"
+            callback_query: "{{ callbackQuery }}"
+          expect:
+            - statusCode: 200
+
+  # Scenario 3: Referral flow
+  - name: "User Referral Flow"
+    weight: 20
+    flow:
+      - post:
+          url: "/webhook/{{ botToken }}"
+          beforeRequest: "generateReferralCheck"
+          json:
+            update_id: "{{ updateId }}"
+            callback_query: "{{ callbackQuery }}"
+          expect:
+            - statusCode: 200
+      
+      - think: 1
+      
+      - post:
+          url: "/webhook/{{ botToken }}"
+          beforeRequest: "generateReferralInvite"
+          json:
+            update_id: "{{ updateId }}"
+            callback_query: "{{ callbackQuery }}"
+          expect:
+            - statusCode: 200

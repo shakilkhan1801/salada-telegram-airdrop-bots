@@ -1,0 +1,16 @@
+# Node
+node_modules/
+dist/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

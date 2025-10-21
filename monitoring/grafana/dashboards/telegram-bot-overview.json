@@ -1,0 +1,354 @@
+{
+  "dashboard": {
+    "title": "Telegram Bot - Overview",
+    "tags": ["telegram-bot", "overview"],
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Active Users (Real-time)",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "telegram_bot_active_users",
+            "legendFormat": "Active Users"
+          }
+        ],
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 500, "color": "yellow" },
+                { "value": 1000, "color": "red" }
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Total Users",
+        "type": "stat",
+        "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "telegram_bot_total_users",
+            "legendFormat": "Total Users"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "palette-classic" },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Request Rate",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[1m])",
+            "legendFormat": "Requests/sec"
+          }
+        ],
+        "yaxes": [
+          { "format": "reqps", "label": "Requests/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Error Rate",
+        "type": "graph",
+        "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{status=~\"5..\"}[1m]) / rate(http_requests_total[1m])",
+            "legendFormat": "Error Rate"
+          }
+        ],
+        "yaxes": [
+          { "format": "percentunit", "label": "Error %" },
+          { "format": "short" }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": { "params": [0.05], "type": "gt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["A", "5m", "now"] },
+              "reducer": { "params": [], "type": "avg" },
+              "type": "query"
+            }
+          ],
+          "name": "Error rate alert"
+        }
+      },
+      {
+        "id": 5,
+        "title": "Response Time (P95)",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 4, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "P95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "P99"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "P50 (Median)"
+          }
+        ],
+        "yaxes": [
+          { "format": "ms", "label": "Response Time" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "User Registrations (24h trend)",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 4, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "increase(telegram_bot_registrations_total[1h])",
+            "legendFormat": "New Users/hour"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Users" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Task Completions Rate",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 10, "w": 8, "h": 6 },
+        "targets": [
+          {
+            "expr": "rate(telegram_bot_tasks_completed_total[5m])",
+            "legendFormat": "Completions/sec"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Points Awarded Rate",
+        "type": "graph",
+        "gridPos": { "x": 8, "y": 10, "w": 8, "h": 6 },
+        "targets": [
+          {
+            "expr": "rate(telegram_bot_points_awarded_total[5m])",
+            "legendFormat": "Points/sec"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Captcha Success Rate",
+        "type": "gauge",
+        "gridPos": { "x": 16, "y": 10, "w": 8, "h": 6 },
+        "targets": [
+          {
+            "expr": "rate(captcha_attempts_total{result=\"success\"}[10m]) / rate(captcha_attempts_total[10m])",
+            "legendFormat": "Success Rate"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 0.7, "color": "yellow" },
+                { "value": 0.9, "color": "green" }
+              ]
+            },
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "Memory Usage",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 16, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "process_resident_memory_bytes / 1024 / 1024",
+            "legendFormat": "RSS Memory (MB)"
+          },
+          {
+            "expr": "process_heap_bytes / 1024 / 1024",
+            "legendFormat": "Heap Used (MB)"
+          }
+        ],
+        "yaxes": [
+          { "format": "mbytes", "label": "Memory" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "CPU Usage",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 16, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "rate(process_cpu_seconds_total[1m]) * 100",
+            "legendFormat": "CPU %"
+          }
+        ],
+        "yaxes": [
+          { "format": "percent", "label": "CPU %" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "Database Operations",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 22, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "rate(storage_operations_total{operation=\"read\"}[1m])",
+            "legendFormat": "Reads/sec"
+          },
+          {
+            "expr": "rate(storage_operations_total{operation=\"write\"}[1m])",
+            "legendFormat": "Writes/sec"
+          },
+          {
+            "expr": "rate(storage_operations_total{operation=\"update\"}[1m])",
+            "legendFormat": "Updates/sec"
+          }
+        ]
+      },
+      {
+        "id": 13,
+        "title": "Cache Hit Rate",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 22, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "rate(cache_hits_total[1m]) / (rate(cache_hits_total[1m]) + rate(cache_misses_total[1m]))",
+            "legendFormat": "Hit Rate"
+          }
+        ],
+        "yaxes": [
+          { "format": "percentunit", "min": 0, "max": 1 },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 14,
+        "title": "Security Events",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 28, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "rate(security_events_total{severity=\"high\"}[5m])",
+            "legendFormat": "High Severity"
+          },
+          {
+            "expr": "rate(security_events_total{severity=\"medium\"}[5m])",
+            "legendFormat": "Medium Severity"
+          },
+          {
+            "expr": "rate(rate_limit_hits_total[5m])",
+            "legendFormat": "Rate Limit Hits"
+          }
+        ]
+      },
+      {
+        "id": 15,
+        "title": "Pending Submissions",
+        "type": "stat",
+        "gridPos": { "x": 12, "y": 28, "w": 6, "h": 6 },
+        "targets": [
+          {
+            "expr": "task_submissions_total{status=\"pending\"}",
+            "legendFormat": "Pending"
+          }
+        ],
+        "options": {
+          "colorMode": "background",
+          "graphMode": "none"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 100, "color": "yellow" },
+                { "value": 500, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 16,
+        "title": "System Uptime",
+        "type": "stat",
+        "gridPos": { "x": 18, "y": 28, "w": 6, "h": 6 },
+        "targets": [
+          {
+            "expr": "process_uptime_seconds / 3600",
+            "legendFormat": "Uptime (hours)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "h",
+            "decimals": 1,
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 1, "color": "yellow" },
+                { "value": 24, "color": "green" }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "overwrite": true
+}

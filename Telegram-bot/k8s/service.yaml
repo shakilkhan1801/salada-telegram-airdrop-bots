@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: telegram-airdrop-bot
+  labels:
+    app: telegram-airdrop-bot
+spec:
+  type: ClusterIP
+  selector:
+    app: telegram-airdrop-bot
+  ports:
+    - name: admin
+      port: 3002
+      targetPort: 3002
+    - name: api
+      port: 3001
+      targetPort: 3001
+    - name: webhook
+      port: 8443
+      targetPort: 8443

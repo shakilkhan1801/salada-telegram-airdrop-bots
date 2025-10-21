@@ -1,0 +1,194 @@
+{
+  "dashboard": {
+    "title": "Telegram Bot - Performance Metrics",
+    "tags": ["telegram-bot", "performance", "database"],
+    "timezone": "browser",
+    "refresh": "10s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Database Query Performance",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(storage_operation_duration_seconds_bucket{operation=\"query\"}[5m])) * 1000",
+            "legendFormat": "Query P95 (ms)"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(storage_operation_duration_seconds_bucket{operation=\"query\"}[5m])) * 1000",
+            "legendFormat": "Query P99 (ms)"
+          }
+        ],
+        "yaxes": [
+          { "format": "ms", "label": "Latency" }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Cache Performance",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(cache_hits_total[1m])",
+            "legendFormat": "Cache Hits/s"
+          },
+          {
+            "expr": "rate(cache_misses_total[1m])",
+            "legendFormat": "Cache Misses/s"
+          },
+          {
+            "expr": "rate(cache_hits_total[1m]) / (rate(cache_hits_total[1m]) + rate(cache_misses_total[1m]))",
+            "legendFormat": "Hit Rate"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "MongoDB Connection Pool",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 8, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "mongodb_connections{state=\"current\"}",
+            "legendFormat": "Active Connections"
+          },
+          {
+            "expr": "mongodb_connections{state=\"available\"}",
+            "legendFormat": "Available Connections"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Connections" }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Redis Operations",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 8, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "rate(redis_commands_processed_total[1m])",
+            "legendFormat": "Commands/sec"
+          },
+          {
+            "expr": "redis_connected_clients",
+            "legendFormat": "Connected Clients"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Request Processing Time by Endpoint",
+        "type": "heatmap",
+        "gridPos": { "x": 0, "y": 14, "w": 24, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(http_request_duration_seconds_bucket{endpoint!=\"\"}[1m])",
+            "legendFormat": "{{endpoint}}"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Event Loop Lag",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 22, "w": 8, "h": 6 },
+        "targets": [
+          {
+            "expr": "event_loop_lag_seconds * 1000",
+            "legendFormat": "Lag (ms)"
+          }
+        ],
+        "yaxes": [
+          { "format": "ms", "label": "Lag" }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": { "params": [100], "type": "gt" },
+              "query": { "params": ["A", "1m", "now"] }
+            }
+          ],
+          "name": "High event loop lag"
+        }
+      },
+      {
+        "id": 7,
+        "title": "Garbage Collection",
+        "type": "graph",
+        "gridPos": { "x": 8, "y": 22, "w": 8, "h": 6 },
+        "targets": [
+          {
+            "expr": "rate(nodejs_gc_duration_seconds_count[1m])",
+            "legendFormat": "GC Events/sec"
+          },
+          {
+            "expr": "rate(nodejs_gc_duration_seconds_sum[1m])",
+            "legendFormat": "GC Time/sec"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Worker Thread Utilization",
+        "type": "gauge",
+        "gridPos": { "x": 16, "y": 22, "w": 8, "h": 6 },
+        "targets": [
+          {
+            "expr": "worker_threads_active / worker_threads_total"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 0.7, "color": "yellow" },
+                { "value": 0.9, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "HTTP Request Throughput",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 28, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total[1m])) by (status)",
+            "legendFormat": "Status {{status}}"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Broadcast Queue Size",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 28, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "broadcast_queue_size",
+            "legendFormat": "Queue Size"
+          },
+          {
+            "expr": "rate(broadcast_sent_total[1m])",
+            "legendFormat": "Sent/sec"
+          }
+        ]
+      }
+    ]
+  },
+  "overwrite": true
+}

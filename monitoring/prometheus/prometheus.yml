@@ -1,0 +1,87 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'telegram-bot-production'
+    environment: 'production'
+
+# AlertManager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'alertmanager:9093'
+
+# Load alert rules
+rule_files:
+  - '/etc/prometheus/rules/*.yml'
+
+# Scrape configurations
+scrape_configs:
+  # Telegram Bot Metrics
+  - job_name: 'telegram-bot'
+    static_configs:
+      - targets: ['telegram-bot:3001']
+        labels:
+          app: 'telegram-bot'
+          service: 'main'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+
+  # Admin Panel Metrics
+  - job_name: 'admin-panel'
+    static_configs:
+      - targets: ['telegram-bot:3002']
+        labels:
+          app: 'telegram-bot'
+          service: 'admin'
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Miniapp Server Metrics
+  - job_name: 'miniapp-server'
+    static_configs:
+      - targets: ['telegram-bot:3004']
+        labels:
+          app: 'telegram-bot'
+          service: 'miniapp'
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # MongoDB Exporter
+  - job_name: 'mongodb'
+    static_configs:
+      - targets: ['mongodb-exporter:9216']
+        labels:
+          app: 'mongodb'
+    scrape_interval: 30s
+
+  # Redis Exporter
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+        labels:
+          app: 'redis'
+    scrape_interval: 30s
+
+  # Node Exporter (system metrics)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          app: 'system'
+    scrape_interval: 15s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+
+# Remote write (optional - for long-term storage)
+# remote_write:
+#   - url: 'https://your-remote-storage/api/v1/write'
+#     basic_auth:
+#       username: 'username'
+#       password: 'password'

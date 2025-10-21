@@ -1,0 +1,525 @@
+groups:
+  - name: telegram_bot_critical
+    interval: 30s
+    rules:
+      # ========================================
+      # HIGH PRIORITY ALERTS
+      # ========================================
+      
+      - alert: BotDown
+        expr: up{job="telegram-bot"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: bot
+        annotations:
+          summary: "Telegram bot is down"
+          description: "Bot instance {{ $labels.instance }} is unreachable for more than 1 minute"
+          action: "Check bot logs and restart service immediately"
+      
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "High error rate detected (>5%)"
+          description: "Error rate is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+          action: "Check application logs for errors"
+      
+      - alert: DatabaseConnectionFailure
+        expr: mongodb_connection_status == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "MongoDB connection lost"
+          description: "Cannot connect to MongoDB database"
+          action: "Check MongoDB service status and network connectivity"
+      
+      - alert: RedisConnectionFailure
+        expr: redis_connected_clients == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: cache
+        annotations:
+          summary: "Redis connection lost"
+          description: "Cannot connect to Redis cache"
+          action: "Check Redis service status - sessions will fallback to MongoDB"
+      
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes > 1073741824
+        for: 5m
+        labels:
+          severity: critical
+          component: system
+        annotations:
+          summary: "Memory usage exceeds 1GB"
+          description: "Process memory is {{ $value | humanize1024 }} on {{ $labels.instance }}"
+          action: "Check for memory leaks and consider restarting"
+      
+      - alert: CaptchaSystemDown
+        expr: rate(captcha_attempts_total[5m]) == 0 and rate(http_requests_total{endpoint="/webhook"}[5m]) > 0
+        for: 3m
+        labels:
+          severity: critical
+          component: captcha
+        annotations:
+          summary: "Captcha system not processing verifications"
+          description: "No captcha attempts while bot receives traffic"
+          action: "Check miniapp server and captcha service"
+
+  - name: telegram_bot_warnings
+    interval: 1m
+    rules:
+      # ========================================
+      # WARNING LEVEL ALERTS
+      # ========================================
+      
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: performance
+        annotations:
+          summary: "High response time (P95 > 1s)"
+          description: "95th percentile response time is {{ $value }}s"
+          action: "Check database query performance and cache hit rates"
+      
+      - alert: LowCacheHitRate
+        expr: rate(cache_hits_total[10m]) / (rate(cache_hits_total[10m]) + rate(cache_misses_total[10m])) < 0.70
+        for: 10m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Low cache hit rate (<70%)"
+          description: "Cache hit rate is {{ $value | humanizePercentage }}"
+          action: "Review cache configuration and TTL settings"
+      
+      - alert: HighRateLimitHits
+        expr: rate(rate_limit_hits_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High rate limit violations"
+          description: "{{ $value }} rate limit hits per second"
+          action: "Possible attack or legitimate traffic spike - review logs"
+      
+      - alert: HighCaptchaFailureRate
+        expr: rate(captcha_attempts_total{result="failed"}[10m]) / rate(captcha_attempts_total[10m]) > 0.30
+        for: 10m
+        labels:
+          severity: warning
+          component: captcha
+        annotations:
+          summary: "High captcha failure rate (>30%)"
+          description: "Captcha failure rate is {{ $value | humanizePercentage }}"
+          action: "Check if captcha difficulty is too high or bot attack"
+      
+      - alert: HighPendingSubmissions
+        expr: task_submissions_total{status="pending"} > 1000
+        for: 15m
+        labels:
+          severity: warning
+          component: moderation
+        annotations:
+          summary: "High pending task submissions (>1000)"
+          description: "{{ $value }} submissions waiting for moderation"
+          action: "Review and approve pending submissions in admin panel"
+      
+      - alert: BroadcastQueueBacklog
+        expr: broadcast_queue_size > 500
+        for: 10m
+        labels:
+          severity: warning
+          component: broadcast
+        annotations:
+          summary: "Broadcast queue backlog (>500)"
+          description: "{{ $value }} broadcasts waiting in queue"
+          action: "Check broadcast worker status and processing speed"
+      
+      - alert: HighBlockedUsersRate
+        expr: rate(security_events_total{action="user_blocked"}[1h]) > 5
+        for: 30m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "Unusual user blocking rate"
+          description: "{{ $value }} users blocked per second in last hour"
+          action: "Review security logs for attack patterns"
+      
+      - alert: MultiAccountDetectionSpike
+        expr: rate(multi_account_detections_total[10m]) > 2
+        for: 10m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High multi-account detection rate"
+          description: "{{ $value }} multi-account attempts detected per second"
+          action: "Review device fingerprinting logs"
+
+  - name: telegram_bot_performance
+    interval: 1m
+    rules:
+      # ========================================
+      # PERFORMANCE MONITORING
+      # ========================================
+      
+      - alert: SlowDatabaseQueries
+        expr: histogram_quantile(0.95, rate(storage_operation_duration_seconds_bucket{operation="query"}[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Slow database queries (P95 > 500ms)"
+          description: "95th percentile query time is {{ $value }}s"
+          action: "Review slow queries and check database indexes"
+      
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High CPU usage (>80%)"
+          description: "CPU usage is {{ $value }}% on {{ $labels.instance }}"
+          action: "Check for intensive operations or consider scaling"
+      
+      - alert: EventLoopLag
+        expr: event_loop_lag_seconds > 0.1
+        for: 3m
+        labels:
+          severity: warning
+          component: performance
+        annotations:
+          summary: "Event loop lag detected (>100ms)"
+          description: "Event loop lag is {{ $value }}s - Node.js may be blocked"
+          action: "Check for blocking operations in code"
+      
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.15
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "Low disk space (<15%)"
+          description: "Only {{ $value | humanizePercentage }} disk space remaining"
+          action: "Clean up old logs and exports, or expand disk"
+      
+      - alert: HighActiveConnections
+        expr: active_connections_total > 1000
+        for: 5m
+        labels:
+          severity: info
+          component: networking
+        annotations:
+          summary: "High number of active connections (>1000)"
+          description: "{{ $value }} active connections on {{ $labels.instance }}"
+          action: "Monitor for potential attack or legitimate traffic spike"
+
+  - name: telegram_bot_business
+    interval: 5m
+    rules:
+      # ========================================
+      # BUSINESS METRICS ALERTS
+      # ========================================
+      
+      - alert: LowUserRegistrationRate
+        expr: rate(telegram_bot_registrations_total[1h]) < 0.1
+        for: 2h
+        labels:
+          severity: info
+          component: business
+        annotations:
+          summary: "Low user registration rate"
+          description: "Only {{ $value }} registrations per second in last hour"
+          action: "Check if bot is promoted and traffic sources"
+      
+      - alert: NoTaskCompletions
+        expr: rate(telegram_bot_tasks_completed_total[30m]) == 0
+        for: 1h
+        labels:
+          severity: info
+          component: business
+        annotations:
+          summary: "No task completions in last hour"
+          description: "Users not completing tasks"
+          action: "Check task availability and user engagement"
+      
+      - alert: HighWithdrawalRequestRate
+        expr: rate(withdrawal_requests_total[10m]) > 5
+        for: 10m
+        labels:
+          severity: info
+          component: wallet
+        annotations:
+          summary: "High withdrawal request rate"
+          description: "{{ $value }} withdrawal requests per second"
+          action: "Monitor wallet service and ensure sufficient funds"
+      
+      - alert: UnusualPointsAwarded
+        expr: rate(telegram_bot_points_awarded_total[5m]) > 1000
+        for: 10m
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "Unusually high points being awarded"
+          description: "{{ $value }} points awarded per second"
+          action: "Check for exploitation or legitimate promotional campaign"
+
+  - name: telegram_bot_health
+    interval: 30s
+    rules:
+      # ========================================
+      # HEALTH CHECK ALERTS
+      # ========================================
+      
+      - alert: HealthCheckFailing
+        expr: up{job=~"telegram-bot|admin-panel|miniapp-server"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: health
+        annotations:
+          summary: "Health check failing for {{ $labels.job }}"
+          description: "Service {{ $labels.job }} on {{ $labels.instance }} is not responding"
+          action: "Investigate service logs and restart if necessary"
+      
+      - alert: MongoDBDown
+        expr: up{job="mongodb"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "MongoDB is down"
+          description: "MongoDB instance is unreachable"
+          action: "Emergency - restart MongoDB service immediately"
+      
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Redis is down"
+          description: "Redis instance is unreachable - system will use MongoDB fallback"
+          action: "Restart Redis service - performance may be degraded"
+      
+      - alert: HighMemoryPressure
+        expr: (process_resident_memory_bytes / 1073741824) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "Memory usage above 80% of limit"
+          description: "Using {{ $value }}GB of memory"
+          action: "Prepare for potential OOM, check for memory leaks"
+
+  - name: telegram_bot_security
+    interval: 1m
+    rules:
+      # ========================================
+      # SECURITY ALERTS
+      # ========================================
+      
+      - alert: SuspiciousSecurityEvents
+        expr: rate(security_events_total{severity="high"}[10m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High severity security events detected"
+          description: "{{ $value }} high severity events per second"
+          action: "Review security audit logs in admin panel"
+      
+      - alert: DDoSAttackSuspected
+        expr: rate(http_requests_total[1m]) > 500
+        for: 2m
+        labels:
+          severity: critical
+          component: security
+        annotations:
+          summary: "Possible DDoS attack (>500 req/s)"
+          description: "Request rate is {{ $value }} per second"
+          action: "Enable rate limiting, check IP sources, consider blocking"
+      
+      - alert: MassiveAccountCreation
+        expr: rate(telegram_bot_registrations_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "Unusually high registration rate"
+          description: "{{ $value }} new users per second"
+          action: "Check for bot attacks or promotional campaign"
+      
+      - alert: CriticalSecurityEvent
+        expr: security_events_total{severity="critical"} > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: security
+        annotations:
+          summary: "Critical security event occurred"
+          description: "Critical security event detected on {{ $labels.instance }}"
+          action: "Immediate investigation required"
+
+  - name: telegram_bot_data
+    interval: 5m
+    rules:
+      # ========================================
+      # DATA & STORAGE ALERTS
+      # ========================================
+      
+      - alert: MongoDBHighConnections
+        expr: mongodb_connections{state="current"} / mongodb_connections{state="available"} > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "MongoDB connection pool at 80% capacity"
+          description: "Using {{ $value | humanizePercentage }} of connection pool"
+          action: "Consider increasing maxPoolSize or scaling database"
+      
+      - alert: MongoDBSlowQueries
+        expr: rate(mongodb_slow_queries_total[5m]) > 1
+        for: 10m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "MongoDB slow queries detected"
+          description: "{{ $value }} slow queries per second"
+          action: "Review query patterns and add indexes if needed"
+      
+      - alert: RedisMemoryHigh
+        expr: (redis_memory_used_bytes / redis_memory_max_bytes) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Redis memory usage high (>85%)"
+          description: "Redis using {{ $value | humanizePercentage }} of max memory"
+          action: "Consider increasing Redis memory or reducing TTL"
+      
+      - alert: DatabaseBackupFailed
+        expr: time() - database_last_backup_timestamp > 86400
+        for: 30m
+        labels:
+          severity: warning
+          component: backup
+        annotations:
+          summary: "Database backup overdue (>24h)"
+          description: "Last backup was {{ $value | humanizeDuration }} ago"
+          action: "Check backup scripts and storage availability"
+
+  - name: telegram_bot_user_experience
+    interval: 2m
+    rules:
+      # ========================================
+      # USER EXPERIENCE ALERTS
+      # ========================================
+      
+      - alert: SlowStartCommand
+        expr: histogram_quantile(0.95, rate(telegram_bot_processing_time_bucket{command="/start"}[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: performance
+        annotations:
+          summary: "/start command slow (P95 > 1s)"
+          description: "95th percentile /start processing time is {{ $value }}s"
+          action: "Review /start handler performance and database queries"
+      
+      - alert: BroadcastDeliveryDelayed
+        expr: broadcast_pending_count > 1000
+        for: 30m
+        labels:
+          severity: warning
+          component: broadcast
+        annotations:
+          summary: "Broadcast delivery delayed (>1000 pending)"
+          description: "{{ $value }} broadcasts pending delivery for 30+ minutes"
+          action: "Check broadcast worker status and increase concurrency"
+      
+      - alert: TaskSubmissionBacklog
+        expr: increase(task_submissions_total{status="pending"}[1h]) > 500
+        for: 1h
+        labels:
+          severity: info
+          component: moderation
+        annotations:
+          summary: "Task submission backlog growing"
+          description: "{{ $value }} new pending submissions in last hour"
+          action: "Moderators should review and approve submissions"
+      
+      - alert: HighCaptchaAbandonmentRate
+        expr: (rate(captcha_attempts_total{result="timeout"}[30m]) + rate(captcha_attempts_total{result="abandoned"}[30m])) / rate(captcha_attempts_total[30m]) > 0.25
+        for: 30m
+        labels:
+          severity: warning
+          component: user_experience
+        annotations:
+          summary: "High captcha abandonment rate (>25%)"
+          description: "{{ $value | humanizePercentage }} of users abandoning captcha"
+          action: "Consider simplifying captcha or reducing timeout"
+
+  - name: telegram_bot_scaling
+    interval: 2m
+    rules:
+      # ========================================
+      # AUTO-SCALING INDICATORS
+      # ========================================
+      
+      - alert: HighConcurrentUsers
+        expr: telegram_bot_active_users > 500
+        for: 5m
+        labels:
+          severity: info
+          component: scaling
+        annotations:
+          summary: "High concurrent active users (>500)"
+          description: "{{ $value }} concurrent active users"
+          action: "Consider scaling up replicas if response times increase"
+      
+      - alert: CPUThresholdForScaling
+        expr: avg(rate(process_cpu_seconds_total[5m])) * 100 > 70
+        for: 5m
+        labels:
+          severity: info
+          component: scaling
+        annotations:
+          summary: "CPU usage suggests need for scaling (>70%)"
+          description: "Average CPU usage is {{ $value }}%"
+          action: "HPA should scale up soon, monitor closely"
+      
+      - alert: DatabaseConnectionsHigh
+        expr: mongodb_connections{state="current"} > 150
+        for: 10m
+        labels:
+          severity: info
+          component: scaling
+        annotations:
+          summary: "High database connection usage (>150)"
+          description: "{{ $value }} active MongoDB connections"
+          action: "Consider adding read replicas or scaling horizontally"

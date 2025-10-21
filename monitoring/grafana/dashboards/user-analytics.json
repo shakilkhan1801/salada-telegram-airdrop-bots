@@ -1,0 +1,172 @@
+{
+  "dashboard": {
+    "title": "Telegram Bot - User Analytics",
+    "tags": ["telegram-bot", "users", "analytics"],
+    "timezone": "browser",
+    "refresh": "1m",
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "User Growth (24h)",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "telegram_bot_total_users",
+            "legendFormat": "Total Users"
+          },
+          {
+            "expr": "telegram_bot_active_users",
+            "legendFormat": "Active Users"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Users" }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "New Registrations Rate",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(telegram_bot_registrations_total[5m]) * 60",
+            "legendFormat": "Registrations/min"
+          },
+          {
+            "expr": "increase(telegram_bot_registrations_total[1h])",
+            "legendFormat": "Registrations/hour"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Verified Users",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 8, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "telegram_bot_verified_users",
+            "legendFormat": "Verified"
+          }
+        ],
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area"
+        }
+      },
+      {
+        "id": 4,
+        "title": "Users with Wallet",
+        "type": "stat",
+        "gridPos": { "x": 6, "y": 8, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "telegram_bot_users_with_wallet",
+            "legendFormat": "With Wallet"
+          }
+        ],
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area"
+        }
+      },
+      {
+        "id": 5,
+        "title": "Blocked Users",
+        "type": "stat",
+        "gridPos": { "x": 12, "y": 8, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "telegram_bot_blocked_users",
+            "legendFormat": "Blocked"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 10, "color": "yellow" },
+                { "value": 50, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "User Verification Rate",
+        "type": "gauge",
+        "gridPos": { "x": 18, "y": 8, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "telegram_bot_verified_users / telegram_bot_total_users"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 0.5, "color": "yellow" },
+                { "value": 0.8, "color": "green" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "User Activity Heatmap",
+        "type": "heatmap",
+        "gridPos": { "x": 0, "y": 12, "w": 24, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{endpoint=\"/webhook\"}[1m])",
+            "legendFormat": "{{instance}}"
+          }
+        ],
+        "dataFormat": "tsbuckets"
+      },
+      {
+        "id": 8,
+        "title": "Top Users by Points",
+        "type": "table",
+        "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "topk(10, user_points)",
+            "format": "table",
+            "instant": true
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Referral Conversion Rate",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(referral_completions_total[10m]) / rate(referral_invites_total[10m])",
+            "legendFormat": "Conversion Rate"
+          }
+        ],
+        "yaxes": [
+          { "format": "percentunit", "min": 0, "max": 1 }
+        ]
+      }
+    ]
+  },
+  "overwrite": true
+}

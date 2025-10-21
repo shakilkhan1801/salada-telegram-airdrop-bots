@@ -1,0 +1,234 @@
+global:
+  # Default timeout for alerts
+  resolve_timeout: 5m
+  
+  # Telegram notification settings
+  telegram_api_url: 'https://api.telegram.org'
+
+# Templates for notifications
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Route tree for alert routing
+route:
+  # Default receiver
+  receiver: 'telegram-critical'
+  
+  # How long to wait before sending notification
+  group_wait: 10s
+  
+  # How long to wait before sending update about grouped alerts
+  group_interval: 5m
+  
+  # How long to wait before re-sending notification
+  repeat_interval: 4h
+  
+  # Group alerts by these labels
+  group_by: ['alertname', 'severity', 'component']
+  
+  # Child routes
+  routes:
+    # Critical alerts - immediate notification
+    - receiver: 'telegram-critical'
+      matchers:
+        - severity="critical"
+      group_wait: 10s
+      group_interval: 2m
+      repeat_interval: 30m
+      continue: false
+    
+    # Warning alerts - less urgent
+    - receiver: 'telegram-warnings'
+      matchers:
+        - severity="warning"
+      group_wait: 30s
+      group_interval: 10m
+      repeat_interval: 2h
+      continue: false
+    
+    # Info alerts - low priority
+    - receiver: 'telegram-info'
+      matchers:
+        - severity="info"
+      group_wait: 5m
+      group_interval: 30m
+      repeat_interval: 12h
+      continue: false
+    
+    # Security alerts - separate channel
+    - receiver: 'telegram-security'
+      matchers:
+        - component="security"
+      group_wait: 10s
+      group_interval: 5m
+      repeat_interval: 1h
+      continue: true
+    
+    # Performance alerts
+    - receiver: 'telegram-performance'
+      matchers:
+        - component=~"performance|database|cache"
+      group_wait: 1m
+      group_interval: 15m
+      repeat_interval: 4h
+      continue: false
+    
+    # Business metrics - daily summary
+    - receiver: 'telegram-business'
+      matchers:
+        - component="business"
+      group_wait: 1h
+      group_interval: 6h
+      repeat_interval: 24h
+      continue: false
+
+# Inhibition rules - suppress alerts when others are active
+inhibit_rules:
+  # Suppress non-critical alerts when service is down
+  - source_matchers:
+      - severity="critical"
+      - alertname="BotDown"
+    target_matchers:
+      - severity=~"warning|info"
+    equal: ['instance']
+  
+  # Suppress database alerts when MongoDB is down
+  - source_matchers:
+      - alertname="MongoDBDown"
+    target_matchers:
+      - component="database"
+    equal: ['instance']
+  
+  # Suppress cache alerts when Redis is down
+  - source_matchers:
+      - alertname="RedisDown"
+    target_matchers:
+      - component="cache"
+    equal: ['instance']
+
+# Receivers - notification destinations
+receivers:
+  # Critical alerts - Telegram admin channel
+  - name: 'telegram-critical'
+    telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TOKEN}'
+        chat_id: ${ALERT_CHAT_ID}
+        api_url: 'https://api.telegram.org'
+        parse_mode: 'HTML'
+        disable_notifications: false
+        message: |
+          🚨 <b>CRITICAL ALERT</b> 🚨
+          
+          <b>Alert:</b> {{ .GroupLabels.alertname }}
+          <b>Severity:</b> {{ .GroupLabels.severity }}
+          <b>Component:</b> {{ .GroupLabels.component }}
+          
+          {{ range .Alerts }}
+          <b>Summary:</b> {{ .Annotations.summary }}
+          <b>Description:</b> {{ .Annotations.description }}
+          <b>Action:</b> {{ .Annotations.action }}
+          <b>Instance:</b> {{ .Labels.instance }}
+          <b>Started:</b> {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          {{ if .EndsAt }}<b>Ended:</b> {{ .EndsAt.Format "2006-01-02 15:04:05" }}{{ end }}
+          
+          {{ end }}
+          
+          <a href="{{ .ExternalURL }}">View in AlertManager</a>
+
+  # Warning alerts - same channel, lower priority
+  - name: 'telegram-warnings'
+    telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TOKEN}'
+        chat_id: ${ALERT_CHAT_ID}
+        parse_mode: 'HTML'
+        disable_notifications: false
+        message: |
+          ⚠️ <b>WARNING</b>
+          
+          <b>Alert:</b> {{ .GroupLabels.alertname }}
+          <b>Component:</b> {{ .GroupLabels.component }}
+          
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ end }}
+
+  # Info alerts - silent notifications
+  - name: 'telegram-info'
+    telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TOKEN}'
+        chat_id: ${ALERT_CHAT_ID}
+        parse_mode: 'HTML'
+        disable_notifications: true
+        message: |
+          ℹ️ <b>INFO</b>: {{ .GroupLabels.alertname }}
+          
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+          {{ end }}
+
+  # Security alerts - dedicated channel
+  - name: 'telegram-security'
+    telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TOKEN}'
+        chat_id: ${SECURITY_ALERT_CHAT_ID}
+        parse_mode: 'HTML'
+        message: |
+          🛡️ <b>SECURITY ALERT</b>
+          
+          <b>Alert:</b> {{ .GroupLabels.alertname }}
+          <b>Severity:</b> {{ .GroupLabels.severity }}
+          
+          {{ range .Alerts }}
+          <b>Summary:</b> {{ .Annotations.summary }}
+          <b>Description:</b> {{ .Annotations.description }}
+          <b>Action:</b> {{ .Annotations.action }}
+          <b>Time:</b> {{ .StartsAt.Format "15:04:05" }}
+          {{ end }}
+
+  # Performance alerts
+  - name: 'telegram-performance'
+    telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TOKEN}'
+        chat_id: ${ALERT_CHAT_ID}
+        parse_mode: 'HTML'
+        disable_notifications: true
+        message: |
+          📊 <b>PERFORMANCE</b>: {{ .GroupLabels.alertname }}
+          
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+          {{ end }}
+
+  # Business metrics - daily summary
+  - name: 'telegram-business'
+    telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TOKEN}'
+        chat_id: ${BUSINESS_METRICS_CHAT_ID}
+        parse_mode: 'HTML'
+        disable_notifications: true
+        message: |
+          💼 <b>Business Metrics</b>
+          
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+          {{ end }}
+
+  # Email notifications (optional backup)
+  # - name: 'email-alerts'
+  #   email_configs:
+  #     - to: 'admin@yourdomain.com'
+  #       from: 'alertmanager@yourdomain.com'
+  #       smarthost: 'smtp.gmail.com:587'
+  #       auth_username: 'alertmanager@yourdomain.com'
+  #       auth_password: '${EMAIL_PASSWORD}'
+  #       headers:
+  #         Subject: '[Alert] {{ .GroupLabels.alertname }}'
+
+  # Slack notifications (optional)
+  # - name: 'slack-alerts'
+  #   slack_configs:
+  #     - api_url: '${SLACK_WEBHOOK_URL}'
+  #       channel: '#bot-alerts'
+  #       title: '{{ .GroupLabels.alertname }}'
+  #       text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'

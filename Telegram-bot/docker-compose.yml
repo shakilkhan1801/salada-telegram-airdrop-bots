@@ -1,0 +1,41 @@
+version: '3.9'
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: telegram-airdrop-bot
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+    ports:
+      - "3001:3001" # miniapp/api
+      - "3002:3002" # admin
+      - "8443:8443" # webhook (if used)
+    depends_on:
+      - mongo
+      - redis
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    container_name: mongo
+    command: ["--wiredTigerCacheSizeGB", "1"]
+    environment:
+      MONGO_INITDB_DATABASE: telegram_airdrop_bot
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+volumes:
+  mongo_data:

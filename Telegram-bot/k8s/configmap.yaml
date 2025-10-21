@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: telegram-airdrop-config
+  labels:
+    app: telegram-airdrop-bot
+data:
+  NODE_ENV: "production"
+  USE_WEBHOOK: "false"
+  RATE_LIMIT_ENABLED: "true"
+  RATE_LIMIT_WINDOW_MS: "60000"
+  RATE_LIMIT_MAX_REQUESTS: "100"
